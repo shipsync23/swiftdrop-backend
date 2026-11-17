@@ -1,0 +1,53 @@
+# Local infrastructure for SwiftDrop.
+# Phase 1: start only the infrastructure (database, broker, mail catcher):
+#     docker compose up -d postgres rabbitmq mailhog
+# Later phases add the api, worker, frontend and mock-merchant services here.
+#
+# Memory limits are set because the development laptop has 8 GB RAM.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: swiftdrop-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-swiftdrop}
+      POSTGRES_USER: ${DB_USERNAME:-swiftdrop}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-swiftdrop}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-swiftdrop} -d ${DB_NAME:-swiftdrop}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    mem_limit: 512m
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: swiftdrop-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-swiftdrop}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-swiftdrop}
+    ports:
+      - "5672:5672"     # AMQP (used by the app)
+      - "15672:15672"   # Management UI: http://localhost:15672
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 512m
+
+  # Catches every email the app sends. Open http://localhost:8025 to read them.
+  mailhog:
+    image: mailhog/mailhog:v1.0.1
+    container_name: swiftdrop-mailhog
+    ports:
+      - "1025:1025"     # SMTP
+      - "8025:8025"     # Web UI
+    mem_limit: 128m
+
+volumes:
+  pgdata:

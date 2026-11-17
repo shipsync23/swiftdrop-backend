@@ -1,0 +1,42 @@
+# All secrets and environment-specific values come from environment variables.
+# The value after ":" is a safe local default used only when the variable is not set.
+server:
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: never
+    include-stacktrace: never
+
+spring:
+  application:
+    name: swiftdrop-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/swiftdrop}
+    username: ${DB_USERNAME:swiftdrop}
+    password: ${DB_PASSWORD:swiftdrop}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate      # Flyway creates the tables; Hibernate only checks them
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true         # /actuator/health/liveness and /readiness (used by Kubernetes)
+
+logging:
+  level:
+    com.swiftdrop: INFO
