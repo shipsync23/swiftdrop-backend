@@ -9,6 +9,9 @@ server:
 spring:
   application:
     name: swiftdrop-backend
+  config:
+    # Load local secrets from the .env file in the project folder if it exists (it is git-ignored).
+    import: optional:file:.env[.properties]
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/swiftdrop}
@@ -26,6 +29,26 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+  # Google login (OAuth 2.0 Authorization Code flow). Real values come from Google Cloud Console.
+  # The placeholder lets the app start before Google is configured; only Google login won't work.
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:not-configured}
+            client-secret: ${GOOGLE_CLIENT_SECRET:not-configured}
+            scope: openid,profile,email
+
+swiftdrop:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  cookie-secure: ${COOKIE_SECURE:false}     # set true when served over HTTPS
+  jwt:
+    # Must be at least 32 characters. Override with the JWT_SECRET environment variable.
+    secret: ${JWT_SECRET:dev-only-secret-change-me-0123456789abcdef}
+    access-token-minutes: 15
+    refresh-token-days: 7
 
 management:
   endpoints:

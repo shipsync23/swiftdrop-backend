@@ -1,10 +1,10 @@
 # SwiftDrop Backend
 
-Spring Boot 3 (Java 17) API and worker for the SwiftDrop Parcel Delivery & Courier Management System.
+Spring Boot 3 (Java 21) API and worker for the SwiftDrop Parcel Delivery & Courier Management System.
 Group 14 – ShipSync.
 
 ## Prerequisites
-- JDK 17
+- JDK 21
 - Docker Desktop
 - IntelliJ IDEA (bundled Maven is enough)
 
