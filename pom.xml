@@ -72,6 +72,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- PDF delivery receipts -->
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
+        </dependency>
+
         <!-- Less boilerplate (getters/setters/constructors) -->
         <dependency>
             <groupId>org.projectlombok</groupId>

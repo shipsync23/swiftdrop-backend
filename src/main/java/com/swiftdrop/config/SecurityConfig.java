@@ -51,7 +51,8 @@ public class SecurityConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
-            "/api/v1/track/**",          // public tracking page (phase 3)
+            "/api/v1/track/**",          // public tracking page
+            "/api/v1/zones",              // zone list for the booking form
             "/actuator/health",
             "/actuator/health/**",
             "/oauth2/**",                 // starts Google login
