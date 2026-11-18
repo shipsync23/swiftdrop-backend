@@ -54,3 +54,26 @@ src/main/java/com/swiftdrop
 └── webhook/         (phase 6) merchant webhook dispatcher
 src/main/resources/db/migration   Flyway SQL migrations
 ```
+
+## Tests and coverage
+
+Docker Desktop must be running (integration tests start their own PostgreSQL and RabbitMQ containers).
+
+```
+mvnw verify        (or: Maven tool window -> Lifecycle -> verify)
+```
+
+- Test results: `target/surefire-reports/`
+- Coverage report: open `target/site/jacoco/index.html` in a browser
+
+| Test class | What it proves |
+|---|---|
+| `ParcelStatusTest` | Status lifecycle: allowed steps, no skipping, final states |
+| `PricingServiceTest` | Strategy pattern: zone/weight rule, flat-rate fallback, limits |
+| `StatusServiceTest` | Courier rules: not-assigned → 403, invalid transition → 409, proof/reason required, event published |
+| `NotificationConsumerTest` | Idempotent consumer: duplicate event is skipped; SMS number masking |
+| `WebhookSenderTest` | HMAC-SHA256 signature, encrypted webhook secret |
+| `AuthorizationIntegrationTest` | 401 without token, role checks, **a courier cannot access another courier's deliveries**, customer isolation, private data hidden on public tracking, merchant API key checks |
+| `EventFlowIntegrationTest` | **Status change → outbox → RabbitMQ → notification consumer → email**, and a duplicate event is processed only once |
+
+Only unit tests (no Docker): `mvnw test -Dtest="!*IntegrationTest"`

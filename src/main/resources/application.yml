@@ -2,6 +2,7 @@
 # The value after ":" is a safe local default used only when the variable is not set.
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework   # trust X-Forwarded-* from Nginx (correct Google redirect URL)
   error:
     include-message: never
     include-stacktrace: never

@@ -1,5 +1,6 @@
 package com.swiftdrop.common.exception;
 
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -8,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -77,6 +79,19 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = build(HttpStatus.BAD_REQUEST, "Validation failed");
         problem.setProperty("errors", fieldErrors);
         return ResponseEntity.badRequest().body(problem);
+    }
+
+    /** Body is not valid JSON or a value has the wrong type (e.g. size = "HUGE"). */
+    @Override
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException ex,
+                                                                  HttpHeaders headers,
+                                                                  HttpStatusCode status,
+                                                                  WebRequest request) {
+        String detail = "Request body is missing or malformed";
+        if (ex.getCause() instanceof InvalidFormatException ife && !ife.getPath().isEmpty()) {
+            detail = "Invalid value for field '" + ife.getPath().get(ife.getPath().size() - 1).getFieldName() + "'";
+        }
+        return ResponseEntity.badRequest().body(build(HttpStatus.BAD_REQUEST, detail));
     }
 
     /** Adds a correlation id to Spring's built-in error responses too. */

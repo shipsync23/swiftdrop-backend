@@ -73,7 +73,7 @@ public class AdminUserService {
         user.setFullName(request.fullName().trim());
         user.setPhone(request.phone());
         user.setRole(role(request.role()));
-        users.save(user);
+        users.saveAndFlush(user);   // flush so createdAt is filled in for the response
 
         if (request.role() == RoleName.COURIER) {
             createCourierProfile(user, request.zoneId(), request.vehicleType(), request.vehicleNumber());

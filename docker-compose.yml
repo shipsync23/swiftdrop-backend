@@ -1,7 +1,12 @@
-# Local infrastructure for SwiftDrop.
-# Phase 1: start only the infrastructure (database, broker, mail catcher):
-#     docker compose up -d postgres rabbitmq mailhog
-# Later phases add the api, worker, frontend and mock-merchant services here.
+# SwiftDrop – full system with one command (report 8.1).
+#
+# Folder layout expected:
+#   ShipSync/
+#     swiftdrop-backend/    <- this file
+#     swiftdrop-frontend/
+#
+# Everything:          docker compose up -d --build        -> http://localhost:3000
+# Only infrastructure: docker compose up -d postgres rabbitmq mailhog   (when running the API from IntelliJ)
 #
 # Memory limits are set because the development laptop has 8 GB RAM.
 
@@ -31,7 +36,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-swiftdrop}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-swiftdrop}
     ports:
-      - "5672:5672"     # AMQP (used by the app)
+      - "5672:5672"     # AMQP
       - "15672:15672"   # Management UI: http://localhost:15672
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
@@ -40,14 +45,65 @@ services:
       retries: 10
     mem_limit: 512m
 
-  # Catches every email the app sends. Open http://localhost:8025 to read them.
+  # Catches every email the app sends: http://localhost:8025
   mailhog:
     image: mailhog/mailhog:v1.0.1
     container_name: swiftdrop-mailhog
     ports:
-      - "1025:1025"     # SMTP
-      - "8025:8025"     # Web UI
+      - "1025:1025"
+      - "8025:8025"
+    mem_limit: 128m
+
+  # Spring Boot API + worker (outbox relay, notification and webhook consumers).
+  # Set SWIFTDROP_WORKER_ENABLED=false and add a second container to run the worker separately.
+  api:
+    build: .
+    image: swiftdrop/api:latest
+    container_name: swiftdrop-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-swiftdrop}
+      DB_USERNAME: ${DB_USERNAME:-swiftdrop}
+      DB_PASSWORD: ${DB_PASSWORD:-swiftdrop}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-swiftdrop}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-swiftdrop}
+      MAIL_HOST: mailhog
+      MAIL_PORT: 1025
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-0123456789abcdef}
+      WEBHOOK_SECRET_KEY: ${WEBHOOK_SECRET_KEY:-dev-only-webhook-encryption-key-change-me}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-not-configured}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-not-configured}
+      FRONTEND_URL: http://localhost:3000
+      UPLOAD_DIR: /app/uploads
+      SWIFTDROP_WORKER_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    volumes:
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+    mem_limit: 768m
+
+  # React build served by Nginx, which also proxies /api to the API
+  frontend:
+    build: ../swiftdrop-frontend
+    image: swiftdrop/frontend:latest
+    container_name: swiftdrop-frontend
+    depends_on:
+      - api
+    ports:
+      - "3000:80"
     mem_limit: 128m
 
 volumes:
   pgdata:
+  uploads:
