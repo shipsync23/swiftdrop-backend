@@ -3,6 +3,8 @@ package com.swiftdrop.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.swiftdrop.auth.GoogleLoginSuccessHandler;
 import com.swiftdrop.auth.JwtService;
+import com.swiftdrop.merchant.ApiCredentialRepository;
+import com.swiftdrop.merchant.ApiKeyAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -22,6 +24,7 @@ import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequest
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -51,6 +54,8 @@ public class SecurityConfig {
             "/api/v1/auth/login",
             "/api/v1/auth/refresh",
             "/api/v1/auth/logout",
+            "/api/v1/merchants/register",  // merchant self-registration (starts PENDING)
+            "/mock-merchant/**",            // demo webhook receiver
             "/api/v1/track/**",          // public tracking page
             "/api/v1/zones",              // zone list for the booking form
             "/actuator/health",
@@ -65,6 +70,7 @@ public class SecurityConfig {
                                                    ClientRegistrationRepository clientRegistrations,
                                                    GoogleLoginSuccessHandler googleSuccessHandler,
                                                    ObjectMapper objectMapper,
+                                                   ApiCredentialRepository apiCredentials,
                                                    @Value("${swiftdrop.frontend-url}") String frontendUrl)
             throws Exception {
         http
@@ -77,12 +83,16 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers("/api/v1/orders", "/api/v1/orders/**").hasRole("MERCHANT_API")
                         .anyRequest().authenticated())
                 .oauth2Login(oauth -> oauth
                         .authorizationEndpoint(ep -> ep.authorizationRequestResolver(pkceResolver(clientRegistrations)))
                         .successHandler(googleSuccessHandler)
                         .failureHandler((req, res, ex) -> res.sendRedirect(frontendUrl + "/login?error=google")))
                 .oauth2ResourceServer(rs -> rs.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())))
+                // Merchant platforms authenticate with X-API-Key on /api/v1/orders (report 5.2.4)
+                .addFilterBefore(new ApiKeyAuthenticationFilter(apiCredentials, objectMapper),
+                        BearerTokenAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) ->
                                 writeProblem(res, objectMapper, HttpStatus.UNAUTHORIZED, "Authentication required"))

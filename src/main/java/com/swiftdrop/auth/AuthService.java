@@ -128,6 +128,12 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.notFound("User not found"));
     }
 
+    /** Used by merchant registration to log the new merchant in straight away. */
+    @Transactional
+    public AuthResult issueTokensFor(User user) {
+        return issueTokens(user);
+    }
+
     // ---------- helpers ----------
 
     private AuthResult issueTokens(User user) {

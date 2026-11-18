@@ -1,6 +1,9 @@
 package com.swiftdrop.parcel;
 
 import com.swiftdrop.common.exception.ApiException;
+import com.swiftdrop.courier.AssignmentRepository;
+import com.swiftdrop.courier.CourierRepository;
+import com.swiftdrop.merchant.MerchantRepository;
 import com.swiftdrop.events.EventPublisher;
 import com.swiftdrop.events.ParcelStatusChangedEvent;
 import com.swiftdrop.parcel.dto.CreateParcelRequest;
@@ -31,14 +34,22 @@ public class ParcelService {
     private final PricingService pricing;
     private final TrackingNumberGenerator trackingNumbers;
     private final EventPublisher events;
+    private final CourierRepository couriers;
+    private final AssignmentRepository assignments;
+    private final MerchantRepository merchants;
 
     public ParcelService(ParcelRepository parcels, StatusHistoryRepository history, PricingService pricing,
-                         TrackingNumberGenerator trackingNumbers, EventPublisher events) {
+                         TrackingNumberGenerator trackingNumbers, EventPublisher events,
+                         CourierRepository couriers, AssignmentRepository assignments,
+                         MerchantRepository merchants) {
         this.parcels = parcels;
         this.history = history;
         this.pricing = pricing;
         this.trackingNumbers = trackingNumbers;
         this.events = events;
+        this.couriers = couriers;
+        this.assignments = assignments;
+        this.merchants = merchants;
     }
 
     /** Step 1 of booking: show the fee before the customer confirms. Nothing is saved. */
@@ -134,16 +145,21 @@ public class ParcelService {
 
     /**
      * Who may see a parcel's full details (report 2.6 / 6.5):
-     * the customer who created it, or staff (dispatcher, admin).
-     * Couriers and merchants get their own rules in later phases.
+     * the customer who created it, the courier it is assigned to, or staff (dispatcher, admin).
+     * or the merchant whose API created it.
      */
-    Parcel loadVisible(UUID parcelId, UUID userId, RoleName role) {
+    public Parcel loadVisible(UUID parcelId, UUID userId, RoleName role) {
         Parcel parcel = parcels.findById(parcelId)
                 .orElseThrow(() -> ApiException.notFound("Parcel not found"));
         boolean allowed = switch (role) {
             case ADMIN, DISPATCHER -> true;
             case CUSTOMER -> userId.equals(parcel.getCustomerId());
-            default -> false;
+            case COURIER -> couriers.findByUserId(userId)
+                    .map(c -> assignments.existsByParcelIdAndCourierIdAndActiveTrue(parcel.getId(), c.getId()))
+                    .orElse(false);
+            case MERCHANT -> merchants.findByUserId(userId)
+                    .map(m -> m.getId().equals(parcel.getMerchantId()))
+                    .orElse(false);
         };
         if (!allowed) {
             throw ApiException.forbidden("You do not have access to this parcel");
